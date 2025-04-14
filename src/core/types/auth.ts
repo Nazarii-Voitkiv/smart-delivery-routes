@@ -1,3 +1,4 @@
+import { Session, User } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 export const loginSchema = z.object({
@@ -5,18 +6,13 @@ export const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export type LoginFormValues = z.infer<typeof loginSchema>;
+export type LoginCredentials = z.infer<typeof loginSchema>;
 
 export interface AuthResult {
   success: boolean;
-  user?: {
-    id: string;
-    email: string;
-  } | null;
-  session?: {
-    access_token: string;
-  } | null;
   message?: string;
+  user?: User | null;
+  session?: Session | null;
 }
 
 export interface AuthSession {

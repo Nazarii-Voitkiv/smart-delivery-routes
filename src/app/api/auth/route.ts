@@ -1,43 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from 'next/headers';
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { AuthService } from '@/core/services/auth-service';
+import { LoginCredentials } from '@/core/types/auth';
+import { config } from '@/config/environment';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const authService = new AuthService(config.supabase.url, config.supabase.anonKey);
+    const credentials: LoginCredentials = await request.json();
     
-    if (!body.email || !body.password) {
+    if (!credentials.email || !credentials.password) {
       return NextResponse.json(
         { success: false, message: "Invalid credentials" },
         { status: 400 }
       );
     }
     
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: body.email,
-      password: body.password
-    });
+    const result = await authService.signIn(credentials);
     
-    if (error) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, message: error.message },
+        { success: false, message: result.message },
         { status: 401 }
       );
     }
 
-    // Set auth cookie
-    cookies().set({
+    const cookieStore = await cookies();
+    await cookieStore.set({
       name: 'sb-access-token',
-      value: data.session.access_token,
+      value: result.session!.access_token,
       path: '/',
       httpOnly: true,
       maxAge: 60 * 60 * 24 * 7, // 1 week
@@ -45,12 +36,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production'
     });
     
-    return NextResponse.json({
-      success: true,
-      user: data.user,
-      session: data.session
-    });
-    
+    return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json(
