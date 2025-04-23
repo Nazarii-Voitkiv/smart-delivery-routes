@@ -4,7 +4,6 @@ import { supabase } from '@/utils/supabase';
 
 export async function GET(req: NextRequest) {
   try {
-    // Використовуємо await для cookies()
     const cookieStore = await cookies();
     const token = cookieStore.get('sb-access-token')?.value;
     
@@ -26,7 +25,6 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Auth check error:', error);
     return NextResponse.json({ authenticated: false });
   }
 }

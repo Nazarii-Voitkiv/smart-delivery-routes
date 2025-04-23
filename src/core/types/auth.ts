@@ -9,13 +9,8 @@ export type LoginFormValues = z.infer<typeof loginSchema>;
 
 export interface AuthResult {
   success: boolean;
-  user?: {
-    id: string;
-    email: string;
-  } | null;
-  session?: {
-    access_token: string;
-  } | null;
+  user?: { id: string; email: string } | null;
+  session?: { access_token: string } | null;
   message?: string;
 }
 
@@ -47,8 +42,6 @@ export interface AuthService {
     session: AuthSession | null;
     error?: string;
   }>;
-  
   signOut(): Promise<void>;
-  
   getCurrentUser(): Promise<UserProfile | null>;
 }

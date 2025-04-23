@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from 'next/headers';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fixed: await the cookies() function before calling methods on it
     const cookieStore = await cookies();
     cookieStore.set({
       name: 'sb-access-token',
