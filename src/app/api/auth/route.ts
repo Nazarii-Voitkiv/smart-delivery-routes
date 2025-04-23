@@ -34,8 +34,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set auth cookie
-    cookies().set({
+    // Fixed: await the cookies() function before calling methods on it
+    const cookieStore = await cookies();
+    cookieStore.set({
       name: 'sb-access-token',
       value: data.session.access_token,
       path: '/',

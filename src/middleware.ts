@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/utils/supabase';
 
 export async function middleware(req: NextRequest) {
   // Get the pathname
@@ -21,14 +21,9 @@ export async function middleware(req: NextRequest) {
   }
 
   try {
-    // Initialize Supabase with user's token
-    const supabaseUrl = process.env.SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     // Verify the token
     const { data: { user }, error } = await supabase.auth.getUser(supabaseAuthToken);
-
+    
     if (error || !user) {
       throw new Error('Invalid token');
     }

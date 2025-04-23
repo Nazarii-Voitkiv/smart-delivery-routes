@@ -1,15 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '@/utils/supabase';
 
 export async function GET(req: NextRequest) {
   try {
-    const token = cookies().get('sb-access-token')?.value;
+    // Використовуємо await для cookies()
+    const cookieStore = await cookies();
+    const token = cookieStore.get('sb-access-token')?.value;
     
     if (!token) {
       return NextResponse.json({ authenticated: false });
@@ -29,6 +26,7 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
+    console.error('Auth check error:', error);
     return NextResponse.json({ authenticated: false });
   }
 }
