@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         email: data.user.email
       }
     });
-  } catch (error) {
+  } catch (error) { // Ensuring catch block is present
     return NextResponse.json({ authenticated: false });
   }
 }
