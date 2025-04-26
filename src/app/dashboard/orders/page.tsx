@@ -111,23 +111,36 @@ export default function Orders() {
     try {
       setUpdatingOrderId(orderId);
       
+      // Find current order
       const order = orders.find(o => o.id === orderId);
       if (!order) throw new Error('Nie znaleziono zamówienia');
       
+      // Apply business logic
       if (newStatus === 'w_drodze' && !order.courier_id) {
         throw new Error('Nie można zmienić statusu na "W drodze" bez przypisanego kuriera');
       }
       
+      // Prepare update data
+      const updateData: any = { status: newStatus };
+      
+      // Set completed_at when status is changed to delivered or cancelled
+      if (newStatus === 'dostarczone' || newStatus === 'anulowane') {
+        updateData.completed_at = new Date().toISOString();
+      }
+      
+      // Update order status
       const { error: orderError } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', orderId);
       
       if (orderError) throw new Error(orderError.message);
-
+      
+      // Handle courier availability when order is completed or cancelled
       if ((newStatus === 'dostarczone' || newStatus === 'anulowane') && order.courier_id) {
         console.log(`Order ${orderId} marked as ${newStatus}, freeing courier ${order.courier_id}`);
         
+        // Make the courier available again
         const { error: courierError } = await supabase
           .from('couriers')
           .update({ available: true })
@@ -138,9 +151,11 @@ export default function Orders() {
         }
       }
       
+      // Remove the order from the list if it's completed or cancelled
       if (newStatus === 'dostarczone' || newStatus === 'anulowane') {
         setOrders(prevOrders => prevOrders.filter(o => o.id !== orderId));
       } else {
+        // Simple status update within active orders
         setOrders(prevOrders => 
           prevOrders.map(o => 
             o.id === orderId ? { ...o, status: newStatus } : o

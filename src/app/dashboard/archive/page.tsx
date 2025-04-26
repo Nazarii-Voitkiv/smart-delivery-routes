@@ -32,6 +32,7 @@ interface Order {
   address: string;
   status: OrderStatus;
   created_at: string;
+  completed_at?: string;
   delivery_date?: string;
   delivery_description: string;
   courier_id?: string;
@@ -52,6 +53,7 @@ export default function OrderArchive() {
     try {
       setLoading(true);
       
+      // Fetch couriers
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
         .select('*');
@@ -69,6 +71,7 @@ export default function OrderArchive() {
       
       setCouriers(courierData || []);
       
+      // Fetch only completed/cancelled orders
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -83,6 +86,7 @@ export default function OrderArchive() {
         address: order.address || 'Brak adresu',
         status: (order.status as OrderStatus) || 'dostarczone',
         created_at: order.created_at,
+        completed_at: order.completed_at,
         delivery_date: order.delivery_date,
         delivery_description: order.delivery_description || 'Brak opisu',
         courier_id: order.courier_id,
@@ -104,6 +108,24 @@ export default function OrderArchive() {
       month: '2-digit',
       year: 'numeric'
     });
+  }
+
+  function calculateDeliveryTime(createdAt: string, completedAt?: string): string {
+    if (!completedAt) return "Brak danych";
+    
+    const start = new Date(createdAt).getTime();
+    const end = new Date(completedAt).getTime();
+    const diffMs = end - start;
+    
+    // Convert to hours and minutes
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours === 0) {
+      return `${minutes}m`;
+    } else {
+      return `${hours}h ${minutes}m`;
+    }
   }
 
   return (
@@ -170,6 +192,7 @@ export default function OrderArchive() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opis dostawy</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adres</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data utworzenia</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Czas realizacji</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
@@ -206,6 +229,11 @@ export default function OrderArchive() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{formatDate(order.created_at)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {calculateDeliveryTime(order.created_at, order.completed_at)}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="relative">
