@@ -10,22 +10,20 @@ interface Courier {
   status: string;
 }
 
-type OrderStatus = 'oczekujace' | 'w_drodze' | 'dostarczone' | 'anulowane' | 'opoznione';
+type OrderStatus = 'oczekujace' | 'w_drodze' | 'dostarczone' | 'anulowane';
 
 const statusDisplayNames: Record<OrderStatus, string> = {
   oczekujace: 'Oczekujące',
   w_drodze: 'W drodze',
   dostarczone: 'Dostarczone',
-  anulowane: 'Anulowane',
-  opoznione: 'Opóżnione'
+  anulowane: 'Anulowane'
 };
 
 const statusColors: Record<OrderStatus, {bg: string, text: string, dot: string}> = {
   oczekujace: {bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-400'},
   w_drodze: {bg: 'bg-indigo-100', text: 'text-indigo-800', dot: 'bg-indigo-400'},
   dostarczone: {bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-400'},
-  anulowane: {bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-400'},
-  opoznione: {bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-400'}
+  anulowane: {bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-400'}
 };
 
 interface Order {
@@ -96,9 +94,52 @@ export default function Orders() {
     }
   }
 
+  async function assignCourierToOrder(orderId: string, courierId: string) {
+    try {
+      setUpdatingOrderId(orderId);
+      
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          courier_id: courierId,
+          status: 'w_drodze' // Automatically change status to "In transit" when courier is assigned
+        })
+        .eq('id', orderId);
+      
+      if (error) throw new Error(error.message);
+      
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId ? { 
+            ...order, 
+            courier_id: courierId,
+            courier: couriers.find(c => c.id === courierId),
+            status: 'w_drodze'
+          } : order
+        )
+      );
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+      setError(`Nie udało się przypisać kuriera: ${errorMessage}`);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
+
   async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
     try {
       setUpdatingOrderId(orderId);
+      
+      // Find current order
+      const order = orders.find(o => o.id === orderId);
+      if (!order) throw new Error('Nie znaleziono zamówienia');
+      
+      // Apply business logic
+      if (newStatus === 'w_drodze' && !order.courier_id) {
+        throw new Error('Nie można zmienić statusu na "W drodze" bez przypisanego kuriera');
+      }
+      
       const { error } = await supabase
         .from('orders')
         .update({ status: newStatus })
@@ -135,12 +176,23 @@ export default function Orders() {
             <h1 className="text-3xl font-bold text-gray-800">Zamówienia</h1>
             <p className="text-gray-500 mt-1">Przeglądaj listę wszystkich zamówień</p>
           </div>
-          <div className="text-sm text-gray-500 flex items-center">
-            <span className="font-medium mr-2">Razem:</span> 
-            <span className="bg-blue-100 text-blue-700 font-medium rounded-full px-3 py-1">{orders.length}</span>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm text-gray-500 flex items-center">
+              <span className="font-medium mr-2">Razem:</span> 
+              <span className="bg-blue-100 text-blue-700 font-medium rounded-full px-3 py-1">{orders.length}</span>
+            </div>
+            <Link
+              href="/dashboard/orders/add"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition-colors duration-200 font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Nowe Zamówienie
+            </Link>
           </div>
         </div>
-
+        
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl shadow-sm">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
