@@ -7,7 +7,7 @@ import { supabase } from '@/utils/supabase';
 interface Courier {
   id: string;
   name: string;
-  status: string;
+  available: boolean;
 }
 
 type OrderStatus = 'oczekujace' | 'w_drodze' | 'dostarczone' | 'anulowane';
@@ -43,6 +43,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
 
   useEffect(() => {
     fetchOrders();
@@ -52,6 +53,7 @@ export default function Orders() {
     try {
       setLoading(true);
       
+      // Fetch couriers
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
         .select('*');
@@ -63,13 +65,18 @@ export default function Orders() {
         couriersMap[courier.id] = {
           id: courier.id,
           name: courier.name || 'Bez nazwy',
-          status: courier.status || 'inactive'
+          available: courier.available || false
         };
       });
       
+      setCouriers(courierData || []);
+      
+      // Only fetch active orders
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*');
+        .select('*')
+        .not('status', 'in', '("dostarczone","anulowane")')
+        .order('created_at', { ascending: false });
       
       if (orderError) throw new Error(orderError.message);
       
@@ -94,39 +101,6 @@ export default function Orders() {
     }
   }
 
-  async function assignCourierToOrder(orderId: string, courierId: string) {
-    try {
-      setUpdatingOrderId(orderId);
-      
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          courier_id: courierId,
-          status: 'w_drodze' // Automatically change status to "In transit" when courier is assigned
-        })
-        .eq('id', orderId);
-      
-      if (error) throw new Error(error.message);
-      
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId ? { 
-            ...order, 
-            courier_id: courierId,
-            courier: couriers.find(c => c.id === courierId),
-            status: 'w_drodze'
-          } : order
-        )
-      );
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
-      setError(`Nie udało się przypisać kuriera: ${errorMessage}`);
-    } finally {
-      setUpdatingOrderId(null);
-    }
-  }
-
   async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
     try {
       setUpdatingOrderId(orderId);
@@ -140,21 +114,89 @@ export default function Orders() {
         throw new Error('Nie można zmienić statusu na "W drodze" bez przypisanego kuriera');
       }
       
-      const { error } = await supabase
+      // Update order status
+      const { error: orderError } = await supabase
         .from('orders')
         .update({ status: newStatus })
         .eq('id', orderId);
       
-      if (error) throw new Error(error.message);
+      if (orderError) throw new Error(orderError.message);
       
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
+      // Handle courier availability when order is completed or cancelled
+      if ((newStatus === 'dostarczone' || newStatus === 'anulowane') && order.courier_id) {
+        console.log(`Order ${orderId} marked as ${newStatus}, freeing courier ${order.courier_id}`);
+        
+        // Make the courier available again
+        const { error: courierError } = await supabase
+          .from('couriers')
+          .update({ available: true })
+          .eq('id', order.courier_id);
+        
+        if (courierError) {
+          console.error('Failed to update courier availability:', courierError);
+        }
+      }
+      
+      // Remove the order from the list if it's completed or cancelled
+      if (newStatus === 'dostarczone' || newStatus === 'anulowane') {
+        setOrders(prevOrders => prevOrders.filter(o => o.id !== orderId));
+      } else {
+        // Simple status update within active orders
+        setOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === orderId ? { ...o, status: newStatus } : o
+          )
+        );
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
       setError(`Nie udało się zaktualizować statusu: ${errorMessage}`);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
+
+  async function assignCourier(orderId: string, courierId: string) {
+    try {
+      setUpdatingOrderId(orderId);
+      
+      // Update the order with the new courier
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ 
+          courier_id: courierId,
+          status: 'w_drodze' // Auto-change status when courier is assigned
+        })
+        .eq('id', orderId);
+      
+      if (orderError) throw new Error(orderError.message);
+      
+      // Mark the courier as unavailable
+      const { error: courierError } = await supabase
+        .from('couriers')
+        .update({ available: false })
+        .eq('id', courierId);
+      
+      if (courierError) throw new Error(courierError.message);
+      
+      // Update local state
+      setOrders(prevOrders => 
+        prevOrders.map(o => {
+          if (o.id === orderId) {
+            const assignedCourier = couriers.find(c => c.id === courierId);
+            return { 
+              ...o, 
+              courier_id: courierId, 
+              courier: assignedCourier,
+              status: 'w_drodze'
+            };
+          }
+          return o;
+        })
+      );
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+      setError(`Nie udało się przypisać kuriera: ${errorMessage}`);
     } finally {
       setUpdatingOrderId(null);
     }
@@ -173,14 +215,15 @@ export default function Orders() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Zamówienia</h1>
-            <p className="text-gray-500 mt-1">Przeglądaj listę wszystkich zamówień</p>
+            <h1 className="text-3xl font-bold text-gray-800">Aktywne Zamówienia</h1>
+            <p className="text-gray-500 mt-1">Przeglądaj listę aktywnych zamówień</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-500 flex items-center">
               <span className="font-medium mr-2">Razem:</span> 
               <span className="bg-blue-100 text-blue-700 font-medium rounded-full px-3 py-1">{orders.length}</span>
             </div>
+            
             <Link
               href="/dashboard/orders/add"
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition-colors duration-200 font-medium"
@@ -192,7 +235,7 @@ export default function Orders() {
             </Link>
           </div>
         </div>
-        
+
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl shadow-sm">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
@@ -223,12 +266,14 @@ export default function Orders() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <h2 className="text-xl font-medium text-gray-800 mb-2">Brak zamówień</h2>
-            <p className="text-gray-500 max-w-md mx-auto">W systemie nie znaleziono żadnych zarejestrowanych zamówień.</p>
+            <h2 className="text-xl font-medium text-gray-800 mb-2">Brak aktywnych zamówień</h2>
+            <p className="text-gray-500 max-w-md mx-auto">
+              W systemie nie znaleziono żadnych aktywnych zamówień.
+            </p>
           </div>
         )}
 
-        {orders.length > 0 && (
+        {!loading && !error && orders.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -245,7 +290,10 @@ export default function Orders() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {orders.map(order => (
-                    <tr key={order.id} className="hover:bg-blue-50 transition-colors duration-150">
+                    <tr 
+                      key={order.id} 
+                      className="hover:bg-blue-50 transition-colors duration-150"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 bg-blue-50 rounded-md px-2 py-1 inline-block">
                           #{order.id.substring(0, 8)}
@@ -259,7 +307,7 @@ export default function Orders() {
                           {order.courier ? (
                             <span className="flex items-center">
                               <span className={`h-2 w-2 mr-2 rounded-full ${
-                                order.courier.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
+                                order.courier.available ? 'bg-green-400' : 'bg-gray-400'
                               }`}></span>
                               {order.courier.name}
                             </span>
@@ -305,7 +353,6 @@ export default function Orders() {
                             ))}
                           </select>
                           
-                          {/* Status indicator dot - centered better */}
                           <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
                             <span className={`block h-3 w-3 rounded-full ${statusColors[order.status]?.dot}`}></span>
                           </div>
@@ -325,7 +372,7 @@ export default function Orders() {
           </div>
         )}
 
-        <div className="mt-8">
+        <div className="mt-8 flex">
           <Link 
             href="/dashboard" 
             className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors duration-200"

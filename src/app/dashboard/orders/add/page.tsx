@@ -11,7 +11,6 @@ interface Courier {
   available: boolean;
 }
 
-// Simplified status options
 type OrderStatus = 'oczekujace' | 'w_drodze' | 'dostarczone' | 'anulowane';
 
 export default function AddOrder() {
@@ -36,9 +35,11 @@ export default function AddOrder() {
   useEffect(() => {
     async function fetchCouriers() {
       try {
+        // Only fetch available couriers
         const { data, error } = await supabase
           .from('couriers')
-          .select('id, name, available');
+          .select('id, name, available')
+          .eq('available', true);
           
         if (error) throw new Error(error.message);
         setCouriers(data || []);
@@ -83,18 +84,32 @@ export default function AddOrder() {
     setError(null);
     
     try {
-      const { data, error } = await supabase
+      // Create the order first
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
           client_name: formData.client_name,
           address: formData.address,
-          status: 'oczekujace', // Always set default status
+          status: 'oczekujace',
           delivery_description: formData.delivery_description,
           courier_id: formData.courier_id || null
         }])
         .select();
         
-      if (error) throw new Error(error.message);
+      if (orderError) throw new Error(orderError.message);
+      
+      // If a courier was assigned, update their availability to false
+      if (formData.courier_id) {
+        const { error: courierError } = await supabase
+          .from('couriers')
+          .update({ available: false })
+          .eq('id', formData.courier_id);
+          
+        if (courierError) {
+          console.error('Failed to update courier availability:', courierError);
+          // We've already created the order, so we'll continue despite this error
+        }
+      }
       
       router.push('/dashboard/orders');
     } catch (err) {
@@ -203,14 +218,16 @@ export default function AddOrder() {
                 {couriers.length > 0 ? (
                   couriers.map(courier => (
                     <option key={courier.id} value={courier.id}>
-                      {courier.name} {!courier.available && '(niedostępny)'}
+                      {courier.name}
                     </option>
                   ))
                 ) : (
                   <option disabled>Brak dostępnych kurierów</option>
                 )}
               </select>
-              <p className="mt-1 text-xs text-gray-500">Status zamówienia będzie "Oczekujące" do momentu przydzielenia kuriera</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Pokazani są tylko dostępni kurierzy. Po przypisaniu kurier stanie się niedostępny.
+              </p>
             </div>
             
             <div>

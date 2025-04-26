@@ -7,6 +7,7 @@ import { supabase } from '@/utils/supabase';
 interface Courier {
   id: string;
   name: string;
+  available: boolean;
   email: string;
   phone: string;
   status: string;
@@ -103,8 +104,8 @@ export default function Couriers() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {couriers.map((courier) => (
-                    <tr key={courier.id} className="hover:bg-indigo-50 transition-colors duration-150">
+                  {couriers.map(courier => (
+                    <tr key={courier.id} className="hover:bg-blue-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -122,18 +123,12 @@ export default function Couriers() {
                         <div className="text-sm text-gray-900">{courier.phone}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${
-                          courier.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          <span className={`h-2 w-2 mr-2 rounded-full ${
-                            courier.status === 'active' 
-                              ? 'bg-green-400' 
-                              : 'bg-gray-400'
-                          }`}></span>
-                          {courier.status === 'active' ? 'Aktywny' : 'Nieaktywny'}
-                        </span>
+                        <div className="flex items-center">
+                          <span className={`h-2.5 w-2.5 rounded-full mr-2 ${courier.available ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                          <span className={`text-sm ${courier.available ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                            {courier.available ? 'Dostępny' : 'Niedostępny'}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   ))}
