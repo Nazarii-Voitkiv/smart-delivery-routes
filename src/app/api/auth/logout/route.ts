@@ -11,7 +11,6 @@ export async function POST() {
   try {
     await supabase.auth.signOut();
     
-    // Clear the auth cookie
     cookies().delete('sb-access-token');
     
     return NextResponse.json({

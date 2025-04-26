@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/utils/supabase';
+import dynamic from 'next/dynamic';
+
+const DeleteConfirmationModal = dynamic(
+  () => import('@/components/ui/DeleteConfirmationModal'),
+  { ssr: false }
+);
 
 interface Courier {
   id: string;
@@ -44,6 +50,8 @@ export default function Orders() {
   const [error, setError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -53,7 +61,6 @@ export default function Orders() {
     try {
       setLoading(true);
       
-      // Fetch couriers
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
         .select('*');
@@ -71,7 +78,6 @@ export default function Orders() {
       
       setCouriers(courierData || []);
       
-      // Only fetch active orders
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -105,28 +111,23 @@ export default function Orders() {
     try {
       setUpdatingOrderId(orderId);
       
-      // Find current order
       const order = orders.find(o => o.id === orderId);
       if (!order) throw new Error('Nie znaleziono zamówienia');
       
-      // Apply business logic
       if (newStatus === 'w_drodze' && !order.courier_id) {
         throw new Error('Nie można zmienić statusu na "W drodze" bez przypisanego kuriera');
       }
       
-      // Update order status
       const { error: orderError } = await supabase
         .from('orders')
         .update({ status: newStatus })
         .eq('id', orderId);
       
       if (orderError) throw new Error(orderError.message);
-      
-      // Handle courier availability when order is completed or cancelled
+
       if ((newStatus === 'dostarczone' || newStatus === 'anulowane') && order.courier_id) {
         console.log(`Order ${orderId} marked as ${newStatus}, freeing courier ${order.courier_id}`);
         
-        // Make the courier available again
         const { error: courierError } = await supabase
           .from('couriers')
           .update({ available: true })
@@ -137,11 +138,9 @@ export default function Orders() {
         }
       }
       
-      // Remove the order from the list if it's completed or cancelled
       if (newStatus === 'dostarczone' || newStatus === 'anulowane') {
         setOrders(prevOrders => prevOrders.filter(o => o.id !== orderId));
       } else {
-        // Simple status update within active orders
         setOrders(prevOrders => 
           prevOrders.map(o => 
             o.id === orderId ? { ...o, status: newStatus } : o
@@ -160,18 +159,16 @@ export default function Orders() {
     try {
       setUpdatingOrderId(orderId);
       
-      // Update the order with the new courier
       const { error: orderError } = await supabase
         .from('orders')
         .update({ 
           courier_id: courierId,
-          status: 'w_drodze' // Auto-change status when courier is assigned
+          status: 'w_drodze'
         })
         .eq('id', orderId);
       
       if (orderError) throw new Error(orderError.message);
       
-      // Mark the courier as unavailable
       const { error: courierError } = await supabase
         .from('couriers')
         .update({ available: false })
@@ -179,7 +176,6 @@ export default function Orders() {
       
       if (courierError) throw new Error(courierError.message);
       
-      // Update local state
       setOrders(prevOrders => 
         prevOrders.map(o => {
           if (o.id === orderId) {
@@ -202,6 +198,48 @@ export default function Orders() {
     }
   }
 
+  function handleDeleteClick(order: Order) {
+    setOrderToDelete(order);
+    setDeleteModalOpen(true);
+  }
+  
+  async function deleteOrder(orderId: string) {
+    try {
+      setUpdatingOrderId(orderId);
+      
+      const order = orders.find(o => o.id === orderId);
+      if (!order) throw new Error('Nie znaleziono zamówienia');
+      
+      if (order.courier_id) {
+        const { error: courierError } = await supabase
+          .from('couriers')
+          .update({ available: true })
+          .eq('id', order.courier_id);
+        
+        if (courierError) {
+          console.error('Failed to update courier availability:', courierError);
+        }
+      }
+      
+      const { error: deleteError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+      
+      if (deleteError) throw new Error(deleteError.message);
+      
+      setOrders(prevOrders => prevOrders.filter(o => o.id !== orderId));
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+      setError(`Nie udało się usunąć zamówienia: ${errorMessage}`);
+    } finally {
+      setUpdatingOrderId(null);
+      setDeleteModalOpen(false);
+      setOrderToDelete(null);
+    }
+  }
+  
   function formatDate(dateString: string) {
     return new Date(dateString).toLocaleDateString('pl-PL', {
       day: '2-digit',
@@ -273,6 +311,7 @@ export default function Orders() {
           </div>
         )}
 
+        {/* Modified Table section with action buttons */}
         {!loading && !error && orders.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -286,14 +325,14 @@ export default function Orders() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adres</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data utworzenia</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Akcje
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {orders.map(order => (
-                    <tr 
-                      key={order.id} 
-                      className="hover:bg-blue-50 transition-colors duration-150"
-                    >
+                    <tr key={order.id} className="hover:bg-blue-50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 bg-blue-50 rounded-md px-2 py-1 inline-block">
                           #{order.id.substring(0, 8)}
@@ -364,6 +403,26 @@ export default function Orders() {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center space-x-3">
+                          <Link
+                            href={`/dashboard/orders/add?edit=${order.id}`}
+                            className="text-indigo-600 hover:text-indigo-900 focus:outline-none"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteClick(order)}
+                            className="text-red-600 hover:text-red-900 focus:outline-none"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -384,6 +443,17 @@ export default function Orders() {
           </Link>
         </div>
       </div>
+
+      {/* Delete Modal */}
+      {orderToDelete && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={() => deleteOrder(orderToDelete.id)}
+          title="Usuń zamówienie"
+          message={`Czy na pewno chcesz usunąć zamówienie dla ${orderToDelete.client_name}? Ta operacja jest nieodwracalna.`}
+        />
+      )}
     </div>
   );
 }

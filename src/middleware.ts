@@ -24,7 +24,7 @@ export async function middleware(req: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch (error) { // Making sure catch block is present
+  } catch (error) { 
     const url = new URL('/login', req.url);
     return NextResponse.redirect(url);
   }

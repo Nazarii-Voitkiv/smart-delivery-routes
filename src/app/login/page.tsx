@@ -23,7 +23,6 @@ export default function Login() {
     try {
       await signIn(data);
     } catch (error) {
-      // Silent error handling - errors are captured by useAuth hook
     }
   };
 
