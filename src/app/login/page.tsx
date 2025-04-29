@@ -22,7 +22,7 @@ export default function Login() {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       await signIn(data);
-    } catch (error) {
+    } catch {
     }
   };
 

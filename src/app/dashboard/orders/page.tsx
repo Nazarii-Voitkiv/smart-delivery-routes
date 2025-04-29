@@ -121,7 +121,10 @@ export default function Orders() {
       }
       
       // Prepare update data
-      const updateData: any = { status: newStatus };
+      const updateData: { 
+        status: OrderStatus; 
+        completed_at?: string;
+      } = { status: newStatus };
       
       // Set completed_at when status is changed to delivered or cancelled
       if (newStatus === 'dostarczone' || newStatus === 'anulowane') {
@@ -170,6 +173,8 @@ export default function Orders() {
     }
   }
 
+  // This function is used internally by status update logic
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function assignCourier(orderId: string, courierId: string) {
     try {
       setUpdatingOrderId(orderId);

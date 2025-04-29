@@ -43,64 +43,64 @@ export default function OrderArchive() {
   const [archivedOrders, setArchivedOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [setCouriers] = useState<Courier[]>([]);
   
   useEffect(() => {
+    async function fetchArchivedOrders() {
+      try {
+        setLoading(true);
+        
+        // Fetch couriers
+        const { data: courierData, error: courierError } = await supabase
+          .from('couriers')
+          .select('*');
+        
+        if (courierError) throw new Error(courierError.message);
+        
+        const couriersMap: Record<string, Courier> = {};
+        courierData?.forEach(courier => {
+          couriersMap[courier.id] = {
+            id: courier.id,
+            name: courier.name || 'Bez nazwy',
+            available: courier.available || false
+          };
+        });
+        
+        setCouriers(courierData || []);
+        
+        // Fetch only completed/cancelled orders
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('*')
+          .or('status.eq.dostarczone,status.eq.anulowane')
+          .order('created_at', { ascending: false });
+        
+        if (orderError) throw new Error(orderError.message);
+        
+        const archivedOrders = orderData?.map(order => ({
+          id: order.id,
+          client_name: order.client_name || '',
+          address: order.address || 'Brak adresu',
+          status: (order.status as OrderStatus) || 'dostarczone',
+          created_at: order.created_at,
+          completed_at: order.completed_at,
+          delivery_date: order.delivery_date,
+          delivery_description: order.delivery_description || 'Brak opisu',
+          courier_id: order.courier_id,
+          courier: order.courier_id ? couriersMap[order.courier_id] : undefined
+        })) || [];
+        
+        setArchivedOrders(archivedOrders);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+        setError(`Nie udało się załadować danych archiwum: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     fetchArchivedOrders();
   }, []);
-  
-  async function fetchArchivedOrders() {
-    try {
-      setLoading(true);
-      
-      // Fetch couriers
-      const { data: courierData, error: courierError } = await supabase
-        .from('couriers')
-        .select('*');
-      
-      if (courierError) throw new Error(courierError.message);
-      
-      const couriersMap: Record<string, Courier> = {};
-      courierData?.forEach(courier => {
-        couriersMap[courier.id] = {
-          id: courier.id,
-          name: courier.name || 'Bez nazwy',
-          available: courier.available || false
-        };
-      });
-      
-      setCouriers(courierData || []);
-      
-      // Fetch only completed/cancelled orders
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('*')
-        .or('status.eq.dostarczone,status.eq.anulowane')
-        .order('created_at', { ascending: false });
-      
-      if (orderError) throw new Error(orderError.message);
-      
-      const archivedOrders = orderData?.map(order => ({
-        id: order.id,
-        client_name: order.client_name || '',
-        address: order.address || 'Brak adresu',
-        status: (order.status as OrderStatus) || 'dostarczone',
-        created_at: order.created_at,
-        completed_at: order.completed_at,
-        delivery_date: order.delivery_date,
-        delivery_description: order.delivery_description || 'Brak opisu',
-        courier_id: order.courier_id,
-        courier: order.courier_id ? couriersMap[order.courier_id] : undefined
-      })) || [];
-      
-      setArchivedOrders(archivedOrders);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
-      setError(`Nie udało się załadować danych archiwum: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function formatDate(dateString: string) {
     return new Date(dateString).toLocaleDateString('pl-PL', {
@@ -175,7 +175,7 @@ export default function OrderArchive() {
             <h2 className="text-xl font-medium text-gray-800 mb-2">Brak archiwalnych zamówień</h2>
             <p className="text-gray-500 max-w-md mx-auto">
               W systemie nie znaleziono żadnych zarchiwizowanych zamówień.
-              Gdy zamówienia otrzymają status "Dostarczone" lub "Anulowane", będą widoczne tutaj.
+              Gdy zamówienia otrzymają status `&quot;`Dostarczone`&quot;` lub `&quot;`Anulowane`&quot;`, będą widoczne tutaj.
             </p>
           </div>
         )}

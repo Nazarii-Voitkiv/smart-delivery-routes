@@ -19,7 +19,7 @@ export function useAuth() {
         
         const data = await response.json();
         setIsAuthenticated(data.authenticated);
-      } catch (err) {
+      } catch {
         setIsAuthenticated(false);
       } finally {
         setAuthChecked(true);

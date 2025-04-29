@@ -1,7 +1,3 @@
-import { Fragment } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-
 interface DeleteConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;

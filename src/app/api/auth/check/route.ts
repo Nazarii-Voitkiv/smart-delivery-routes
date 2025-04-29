@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabase } from '@/utils/supabase';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('sb-access-token')?.value;
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         email: data.user.email
       }
     });
-  } catch (error) { 
+  } catch {
     return NextResponse.json({ authenticated: false });
   }
 }
