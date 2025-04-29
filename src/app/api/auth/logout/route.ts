@@ -1,21 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from "next/server";
 import { cookies } from 'next/headers';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export async function POST() {
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+    
     await supabase.auth.signOut();
     
-    cookies().delete('sb-access-token');
+    const headers = new Headers();
+    headers.append('Set-Cookie', 'sb-access-token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
+    headers.append('Set-Cookie', 'sb-refresh-token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
     
-    return NextResponse.json({
-      success: true
-    });
+    return NextResponse.json(
+      { success: true },
+      {
+        status: 200,
+        headers
+      }
+    );
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json(

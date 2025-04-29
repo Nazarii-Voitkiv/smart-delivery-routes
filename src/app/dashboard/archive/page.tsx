@@ -43,14 +43,12 @@ export default function OrderArchive() {
   const [archivedOrders, setArchivedOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [setCouriers] = useState<Courier[]>([]);
   
   useEffect(() => {
     async function fetchArchivedOrders() {
       try {
         setLoading(true);
         
-        // Fetch couriers
         const { data: courierData, error: courierError } = await supabase
           .from('couriers')
           .select('*');
@@ -66,9 +64,6 @@ export default function OrderArchive() {
           };
         });
         
-        setCouriers(courierData || []);
-        
-        // Fetch only completed/cancelled orders
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .select('*')
@@ -117,7 +112,6 @@ export default function OrderArchive() {
     const end = new Date(completedAt).getTime();
     const diffMs = end - start;
     
-    // Convert to hours and minutes
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
