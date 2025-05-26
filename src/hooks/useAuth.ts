@@ -23,7 +23,7 @@ export function useAuth() {
                 return;
             }
 
-            router.push('/dashboard');
+            router.push('/dashboard/orders');
             router.refresh();
         } catch {
             setError('Błąd podczas logowania do systemu');
@@ -32,5 +32,18 @@ export function useAuth() {
         }
     };
 
-    return { signIn, isLoading, error };
+    const signOut = async () => {
+        try {
+            setIsLoading(true);
+            await supabase.auth.signOut();
+            router.push('/login');
+            router.refresh();
+        } catch {
+            setError('Błąd podczas wylogowania z systemu');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return { signIn, signOut, isLoading, error };
 }
