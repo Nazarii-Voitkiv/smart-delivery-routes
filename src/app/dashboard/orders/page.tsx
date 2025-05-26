@@ -49,7 +49,6 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [couriers, setCouriers] = useState<Courier[]>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
@@ -75,8 +74,6 @@ export default function Orders() {
           available: courier.available || false
         };
       });
-      
-      setCouriers(courierData || []);
       
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -335,7 +332,7 @@ export default function Orders() {
                             value={order.status}
                             onChange={e => updateOrderStatus(order.id, e.target.value as OrderStatus)}
                             disabled={updatingOrderId === order.id}
-                            className={`appearance-none cursor-pointer w-full pl-10 pr-10 py-2 ${
+                            className={`appearance-none cursor-pointer w-[160px] pl-10 pr-10 py-2 ${
                               statusColors[order.status]?.bg || 'bg-gray-100'
                             } ${
                               statusColors[order.status]?.text || 'text-gray-800'

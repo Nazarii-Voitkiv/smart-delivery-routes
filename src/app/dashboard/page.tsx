@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function Dashboard() {
-  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const supabase = createClientComponentClient();
 
