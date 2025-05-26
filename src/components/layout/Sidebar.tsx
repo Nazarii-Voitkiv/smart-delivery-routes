@@ -32,7 +32,7 @@ export default function Sidebar() {
     <div className="flex h-screen flex-col justify-between bg-white border-r border-gray-200 w-64">
       <div className="flex flex-col flex-grow">
         <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 border-b border-gray-200">
-          <h1 className="text-lg font-medium text-gray-900">Smart Delivery Routes</h1>
+          <h1 className="text-lg font-medium text-gray-900">LogistiX</h1>
         </div>
         <div className="flex flex-col flex-grow overflow-y-auto pt-8">
           <nav className="flex-1 px-6 space-y-6">

@@ -107,7 +107,7 @@ export default function AddOrEditOrderForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
-    if (!formData.client_name || !formData.address) {
+    if (!formData.client_name || !formData.address || !formData.courier_id) {
       setError('Wypełnij wszystkie wymagane pola formularza.');
       return;
     }
@@ -287,6 +287,7 @@ export default function AddOrEditOrderForm() {
                 value={formData.courier_id}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                required
               >
                 <option value="">-- Brak kuriera --</option>
                 {availableCouriers.map(courier => (
