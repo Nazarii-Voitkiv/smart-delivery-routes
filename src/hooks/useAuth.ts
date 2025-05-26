@@ -6,9 +6,9 @@ export function useAuth() {
     const supabase = createClientComponentClient();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
 
-    const signIn = async ({ email, password }) => {
+    const signIn = async ({ email, password }: { email: string; password: string }) => {
         try {
             setIsLoading(true);
             setError(null);
@@ -25,8 +25,8 @@ export function useAuth() {
 
             router.push('/dashboard');
             router.refresh();
-        } catch (err) {
-            setError('Ошибка при входе в систему');
+        } catch {
+            setError('Błąd podczas logowania do systemu');
         } finally {
             setIsLoading(false);
         }

@@ -1,10 +1,16 @@
-interface FormInputProps {
+import { InputHTMLAttributes } from 'react';
+
+interface ValidationError {
+    message?: string;
+    type?: string;
+}
+
+interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
     label: string;
     id: string;
-    error?: any;
+    error?: ValidationError | null;
     type?: string;
     autoComplete?: string;
-    [key: string]: any;
 }
 
 export default function FormInput({

@@ -1,9 +1,10 @@
-interface ButtonProps {
+import { ButtonHTMLAttributes } from 'react';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   isLoading?: boolean;
   fullWidth?: boolean;
   type?: "button" | "submit" | "reset";
-  [key: string]: any;
 }
 
 export default function Button({
